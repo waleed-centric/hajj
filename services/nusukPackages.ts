@@ -1,3 +1,6 @@
+import fs from "fs/promises";
+import path from "path";
+
 export type NusukPackageCamp = {
   name: string;
   price: number;
@@ -90,14 +93,20 @@ function normalizePackages(value: unknown): NusukPackage[] {
     .map((p) => {
       if (!isRecord(p)) return null;
       const uuid = normalizeString(p.uuid);
-      const name = normalizeString(p.name);
-      const provider_name = normalizeString(p.provider_name);
-      const category_name = normalizeString(p.category_name);
-      const start_date = normalizeString(p.start_date);
-      const end_date = normalizeString(p.end_date);
-      const duration = normalizeNumber(p.duration);
-      const total_price = normalizeNumber(p.total_price);
-      const available = normalizeBoolean(p.available);
+      const name = normalizeString(p.nameEn || p.nameAr || p.name);
+      const provider_name = normalizeString(p.serviceProviderNameEn || p.serviceProviderNameAr || p.provider_name);
+      const category_name = normalizeString(p.packageCategoryName || p.category_name);
+      const start_date = normalizeString(p.startDate || p.start_date);
+      const end_date = normalizeString(p.endDate || p.end_date);
+      const duration = normalizeNumber(p.packageDurationDays || p.duration);
+      const total_price = normalizeNumber(p.totalPrice || p.total_price);
+      
+      let available = normalizeBoolean(p.available);
+      if (p.availableSeats !== undefined) {
+        available = normalizeNumber(p.availableSeats) > 0;
+      } else if (p.availabilityStatus !== undefined) {
+        available = normalizeNumber(p.availabilityStatus) === 1;
+      }
 
       if (!uuid || !name) return null;
 
@@ -105,15 +114,15 @@ function normalizePackages(value: unknown): NusukPackage[] {
         uuid,
         name,
         provider_name,
-        provider_website: isRecord(p) ? (p.provider_website as string | null | undefined) : undefined,
+        provider_website: isRecord(p) ? (p.serviceProviderWebsite || p.provider_website as string | null | undefined) : undefined,
         category_name,
         start_date,
         end_date,
         duration,
         total_price,
         available,
-        shifting: normalizeBoolean(p.shifting),
-        zone_name: normalizeString(p.zone_name),
+        shifting: normalizeBoolean(p.shifting) || category_name.toLowerCase().includes("shifting"),
+        zone_name: normalizeString(p.housingZoneNameEn || p.zoneNameEn || p.zone_name),
         camps: normalizeCamps(p.camps),
         hotels: normalizeHotels(p.hotels),
       } as NusukPackage;
@@ -124,25 +133,28 @@ function normalizePackages(value: unknown): NusukPackage[] {
 export async function fetchUsenusukPackages(options?: {
   revalidateSeconds?: number;
 }) {
-  const revalidateSeconds = options?.revalidateSeconds ?? 1800;
-  const res = await fetch("https://packages.usenusuk.com/packages.json", {
-    cache: "force-cache",
-    next: { revalidate: revalidateSeconds },
-  });
+  try {
+    const filePath = path.join(process.cwd(), "scrapped_data.json");
+    const fileContent = await fs.readFile(filePath, "utf-8");
+    const json = JSON.parse(fileContent);
+    
+    // In scrapped_data.json, data is the array itself, or it might be wrapped in { data: [...] }
+    const rawPackages = Array.isArray(json) ? json : (json.data || []);
+    const lastUpdated = json.last_updated || new Date().toISOString();
+    const packages = normalizePackages(rawPackages);
 
-  if (!res.ok) {
-    throw new Error(`packages.usenusuk.com failed: ${res.status}`);
+    return {
+      source: "Local Scraped Data",
+      lastUpdated,
+      packages,
+    };
+  } catch (error: any) {
+    console.error("Error reading scraped packages:", error.message);
+    return {
+      source: "Local Scraped Data (File not found, please scrape first)",
+      lastUpdated: null,
+      packages: [],
+    };
   }
-
-  const json = (await res.json()) as UsenusukPackagesResponse;
-  const lastUpdated =
-    typeof json.last_updated === "string" ? json.last_updated : null;
-  const packages = normalizePackages(json.data);
-
-  return {
-    source: "packages.usenusuk.com",
-    lastUpdated,
-    packages,
-  };
 }
 

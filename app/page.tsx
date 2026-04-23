@@ -10,12 +10,18 @@ export default function Home() {
         <p className="mt-2 text-sm leading-6 text-zinc-600">
           Live packages list UI.
         </p>
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Link
             className="inline-flex h-11 items-center justify-center rounded-lg bg-zinc-900 px-4 text-sm font-semibold text-white hover:bg-zinc-800"
             href="/packages"
           >
             View Packages
+          </Link>
+          <Link
+            className="inline-flex h-11 items-center justify-center rounded-lg border border-zinc-200 bg-white px-4 text-sm font-semibold text-zinc-900 hover:bg-zinc-50"
+            href="/scraper"
+          >
+            Scrape Nusuk API
           </Link>
         </div>
       </main>

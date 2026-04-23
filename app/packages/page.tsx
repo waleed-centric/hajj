@@ -5,6 +5,8 @@ export const metadata = {
   title: "Hajj Packages",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function PackagesPage() {
   const { source, lastUpdated, packages } = await fetchUsenusukPackages();
 
