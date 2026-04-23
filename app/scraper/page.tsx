@@ -34,7 +34,7 @@ export default function ScraperPage() {
       <div className="w-full max-w-xl rounded-xl border border-zinc-200 bg-white p-6 shadow-sm">
         <h1 className="mb-4 text-2xl font-semibold text-zinc-900">Nusuk Packages Scraper</h1>
         <p className="mb-6 text-sm text-zinc-600">
-          Apni cookie details daalein takay data scrape ho sakay. API URL ab automatically handle hota hai.
+          Enter your cookie details to scrape the data. The API URL is now handled automatically.
         </p>
         <div className="flex flex-col gap-4">
           <div>
@@ -42,7 +42,7 @@ export default function ScraperPage() {
             <textarea 
               value={cookie} 
               onChange={e => setCookie(e.target.value)}
-              placeholder="Poora cookie string yahan paste karein (e.g. sessionId=...)"
+              placeholder="Paste the complete cookie string here (e.g. sessionId=...)"
               rows={6}
               className="mt-1 w-full rounded-md border border-zinc-300 p-2 text-sm text-zinc-900 outline-none focus:border-zinc-500"
             />
