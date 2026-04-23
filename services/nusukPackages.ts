@@ -29,6 +29,10 @@ export type NusukPackage = {
   zone_name?: string | null;
   camps: NusukPackageCamp[];
   hotels: NusukPackageHotel[];
+  description?: string;
+  image_url?: string;
+  available_seats?: number;
+  makkah_rating?: number;
 };
 
 type UsenusukPackagesResponse = {
@@ -125,6 +129,10 @@ function normalizePackages(value: unknown): NusukPackage[] {
         zone_name: normalizeString(p.housingZoneNameEn || p.zoneNameEn || p.zone_name),
         camps: normalizeCamps(p.camps),
         hotels: normalizeHotels(p.hotels),
+        description: normalizeString(p.descriptionEn || p.descriptionAr || p.description),
+        image_url: normalizeString(p.imageUrl || p.image_url),
+        available_seats: p.availableSeats !== undefined ? normalizeNumber(p.availableSeats) : undefined,
+        makkah_rating: p.makkahRating !== undefined ? normalizeNumber(p.makkahRating) : undefined,
       } as NusukPackage;
     })
     .filter((p): p is NusukPackage => p !== null);

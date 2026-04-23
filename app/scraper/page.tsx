@@ -1,16 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function ScraperPage() {
   const [cookie, setCookie] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
 
+  useEffect(() => {
+    const savedCookie = localStorage.getItem("nusuk_cookie");
+    if (savedCookie) {
+      setCookie(savedCookie);
+    }
+  }, []);
+
   const handleScrape = async () => {
     setLoading(true);
     setResult(null);
     try {
+      localStorage.setItem("nusuk_cookie", cookie);
+      
       const res = await fetch("/api/scraper", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

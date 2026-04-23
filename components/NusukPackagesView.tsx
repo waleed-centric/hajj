@@ -3,6 +3,8 @@
 import { useMemo, useState, useEffect } from "react";
 import type { NusukPackage } from "../services/nusukPackages";
 
+import Link from "next/link";
+
 function formatMoney(value: number) {
   if (!Number.isFinite(value)) return "-";
   return new Intl.NumberFormat("en-US", {
@@ -31,7 +33,6 @@ export function NusukPackagesView(props: {
   const [query, setQuery] = useState("");
   const [availableOnly, setAvailableOnly] = useState(false);
   const [category, setCategory] = useState<string>("all");
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -149,18 +150,12 @@ export function NusukPackagesView(props: {
 
         <ul className="divide-y divide-zinc-200">
           {paginated.map((p) => {
-            const isOpen = expanded.has(p.uuid);
             return (
-              <li key={p.uuid} className="px-4 py-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = new Set(expanded);
-                    if (next.has(p.uuid)) next.delete(p.uuid);
-                    else next.add(p.uuid);
-                    setExpanded(next);
-                  }}
-                  className="w-full text-left"
+              <li key={p.uuid} className="px-4 py-4 transition-colors hover:bg-zinc-50/50">
+                <Link
+                  href={`/packages/${p.uuid}`}
+                  target="_blank"
+                  className="w-full text-left block"
                 >
                   <div className="grid grid-cols-1 gap-2 md:grid-cols-[1.3fr_1fr_0.7fr_0.8fr_0.7fr_0.6fr] md:items-center md:gap-4">
                     <div className="min-w-0">
@@ -197,65 +192,7 @@ export function NusukPackagesView(props: {
                       </span>
                     </div>
                   </div>
-                </button>
-
-                {isOpen ? (
-                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-zinc-600">
-                        Camps
-                      </div>
-                      <ul className="mt-2 space-y-1 text-sm text-zinc-900">
-                        {p.camps.length ? (
-                          p.camps.map((c) => (
-                            <li
-                              key={`${p.uuid}-${c.name}`}
-                              className="flex items-center justify-between gap-3"
-                            >
-                              <span className="min-w-0 truncate">{c.name}</span>
-                              <span className="shrink-0 text-zinc-700">
-                                {formatMoney(c.price)}
-                                {c.available ? "" : " • Full"}
-                              </span>
-                            </li>
-                          ))
-                        ) : (
-                          <li className="text-zinc-600">-</li>
-                        )}
-                      </ul>
-                    </div>
-
-                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
-                      <div className="text-xs font-semibold uppercase tracking-wide text-zinc-600">
-                        Hotels
-                      </div>
-                      <ul className="mt-2 space-y-1 text-sm text-zinc-900">
-                        {p.hotels.length ? (
-                          p.hotels.map((h) => (
-                            <li
-                              key={`${p.uuid}-${h.type}-${h.name}`}
-                              className="flex flex-col gap-0.5"
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <span className="min-w-0 truncate font-medium">
-                                  {h.name}
-                                </span>
-                                <span className="shrink-0 text-xs text-zinc-600">
-                                  {h.type}
-                                </span>
-                              </div>
-                              <div className="text-xs text-zinc-600">
-                                {formatDate(h.check_in)} - {formatDate(h.check_out)}
-                              </div>
-                            </li>
-                          ))
-                        ) : (
-                          <li className="text-zinc-600">-</li>
-                        )}
-                      </ul>
-                    </div>
-                  </div>
-                ) : null}
+                </Link>
               </li>
             );
           })}
