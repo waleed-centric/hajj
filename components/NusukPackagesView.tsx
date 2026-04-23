@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import type { NusukPackage } from "../services/nusukPackages";
 
 function formatMoney(value: number) {
@@ -32,6 +32,8 @@ export function NusukPackagesView(props: {
   const [availableOnly, setAvailableOnly] = useState(false);
   const [category, setCategory] = useState<string>("all");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -51,6 +53,36 @@ export function NusukPackagesView(props: {
       return hay.includes(q);
     });
   }, [props.packages, query, availableOnly, category]);
+
+  // Reset page to 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [query, availableOnly, category]);
+
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginated = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filtered.slice(start, start + itemsPerPage);
+  }, [filtered, currentPage]);
+
+  const startItem = filtered.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, filtered.length);
+
+  function getPageNumbers() {
+    const items: (number | string)[] = [];
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) items.push(i);
+    } else {
+      if (currentPage <= 3) {
+        items.push(1, 2, 3, 4, "...", totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        items.push(1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        items.push(1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages);
+      }
+    }
+    return items;
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -116,7 +148,7 @@ export function NusukPackagesView(props: {
         </div>
 
         <ul className="divide-y divide-zinc-200">
-          {filtered.map((p) => {
+          {paginated.map((p) => {
             const isOpen = expanded.has(p.uuid);
             return (
               <li key={p.uuid} className="px-4 py-4">
@@ -233,9 +265,71 @@ export function NusukPackagesView(props: {
           <div className="px-4 py-12 text-center text-sm text-zinc-600">
             No packages found.
           </div>
-        ) : null}
+        ) : (
+          <div className="flex flex-col items-center justify-between gap-4 border-t border-zinc-200 bg-white px-4 py-4 sm:flex-row">
+            <div className="text-sm text-zinc-500">
+              {startItem} - {endItem} of {filtered.length} items
+            </div>
+            
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1 text-sm">
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="flex h-8 w-8 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50 disabled:hover:bg-transparent"
+                >
+                  &lt;&lt;
+                </button>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="flex h-8 w-8 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50 disabled:hover:bg-transparent"
+                >
+                  &lt;
+                </button>
+
+                {getPageNumbers().map((pageNum, idx) => {
+                  if (pageNum === "...") {
+                    return (
+                      <span key={`ellipsis-${idx}`} className="px-1 text-zinc-400">
+                        ...
+                      </span>
+                    );
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum as number)}
+                      className={`flex h-8 w-8 items-center justify-center rounded ${
+                        currentPage === pageNum
+                          ? "bg-zinc-100 font-semibold text-zinc-900"
+                          : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="flex h-8 w-8 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50 disabled:hover:bg-transparent"
+                >
+                  &gt;
+                </button>
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="flex h-8 w-8 items-center justify-center rounded text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50 disabled:hover:bg-transparent"
+                >
+                  &gt;&gt;
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
