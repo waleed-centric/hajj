@@ -34,6 +34,7 @@ export type NusukPackage = {
   available_seats?: number;
   makkah_rating?: number;
   detailed_html?: string;
+  services?: string;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -130,6 +131,7 @@ function normalizePackages(value: unknown): NusukPackage[] {
         available_seats: p.availableSeats !== undefined ? normalizeNumber(p.availableSeats) : undefined,
         makkah_rating: p.makkahRating !== undefined ? normalizeNumber(p.makkahRating) : undefined,
         detailed_html: p.detailed_html ? normalizeString(p.detailed_html) : undefined,
+        services: p.services ? normalizeString(p.services) : undefined,
       } as NusukPackage;
     })
     .filter((p): p is NusukPackage => p !== null);

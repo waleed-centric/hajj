@@ -50,11 +50,110 @@ const CalendarIcon = () => (
 
 export function PackageDetailClient({ pkg: p }: { pkg: NusukPackage }) {
   const [mounted, setMounted] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const handleContentClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    const fancyboxTrigger = target.closest('[data-fancybox="gallery"]');
+    
+    if (fancyboxTrigger) {
+      e.preventDefault();
+      const container = document.getElementById("package-external-content");
+      if (!container) return;
+
+      const items = Array.from(container.querySelectorAll('[data-fancybox="gallery"]'));
+      const urls: string[] = [];
+      let clickedIdx = 0;
+
+      items.forEach((item) => {
+        const url = item.getAttribute("data-src") || item.getAttribute("href");
+        if (url) {
+          // ensure absolute url
+          const finalUrl = url.startsWith("/") ? `https://hajj.nusuk.sa${url}` : url;
+          if (!urls.includes(finalUrl)) {
+            urls.push(finalUrl);
+          }
+          if (item === fancyboxTrigger) {
+            clickedIdx = urls.indexOf(finalUrl);
+          }
+        }
+      });
+
+      if (urls.length > 0) {
+        setGalleryImages(urls);
+        setCurrentImageIndex(clickedIdx);
+        setGalleryOpen(true);
+      }
+    }
+  };
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
+
+  // Effect to hide specific text sections and unwanted buttons after HTML is injected
+  useEffect(() => {
+    if (mounted && p.detailed_html) {
+      const container = document.getElementById("package-external-content");
+      if (!container) return;
+
+      // 1. Hide buttons except "See all images" / gallery triggers
+      const buttons = container.querySelectorAll('button, .btn, a[class*="btn"], a[class*="button"], [role="button"]');
+      buttons.forEach(btn => {
+        const text = btn.textContent?.trim().toLowerCase() || "";
+        const isGallery = btn.hasAttribute("data-fancybox") && btn.getAttribute("data-fancybox") === "gallery";
+        const isSeeAllImages = text.includes("see all images") || text.includes("images");
+        
+        if (!isGallery && !isSeeAllImages) {
+          (btn as HTMLElement).style.setProperty("display", "none", "important");
+        }
+      });
+
+      // 2. Hide sections for Support Email, Website, Contact Us
+      const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null);
+      let node;
+      const nodesToHide: HTMLElement[] = [];
+      
+      while ((node = walker.nextNode())) {
+        const text = node.nodeValue?.trim().toLowerCase() || "";
+        if (
+          text === "support email" || 
+          text === "website" || 
+          text === "contact us" ||
+          text.includes("support email:") ||
+          text.includes("contact us:")
+        ) {
+          const parentElem = node.parentElement;
+          if (parentElem) {
+            // Try to find a logical wrapper to hide
+            const wrapper = parentElem.closest('li') || 
+                            parentElem.closest('tr') || 
+                            parentElem.closest('.col-md-6') || 
+                            parentElem.closest('.col-12') || 
+                            parentElem.closest('.contact-info');
+            
+            if (wrapper && wrapper !== container) {
+              nodesToHide.push(wrapper as HTMLElement);
+            } else {
+              const p = parentElem.parentElement;
+              if (p && p !== container) {
+                nodesToHide.push(p);
+              } else {
+                nodesToHide.push(parentElem);
+              }
+            }
+          }
+        }
+      }
+
+      nodesToHide.forEach(el => {
+        el.style.setProperty("display", "none", "important");
+      });
+    }
+  }, [mounted, p.detailed_html]);
 
   const details = useMemo(() => {
     if (!p.detailed_html) return null;
@@ -111,10 +210,6 @@ export function PackageDetailClient({ pkg: p }: { pkg: NusukPackage }) {
         #package-external-content #footer { 
           display: none !important; 
         }
-        #package-external-content .dga-card,
-        #package-external-content section.dga-pt-8xl {
-          display: none !important;
-        }
         /* Overrides for cleaner embedded view */
         #package-external-content {
           overflow-x: auto;
@@ -134,6 +229,16 @@ export function PackageDetailClient({ pkg: p }: { pkg: NusukPackage }) {
         /* Hide Google Translate UI inside injected HTML if any */
         #package-external-content .goog-te-banner-frame { display: none !important; }
         #package-external-content #google_translate_element { display: none !important; }
+        
+        /* Hide all buttons and button-like links globally */
+        #package-external-content button:not([data-fancybox="gallery"]),
+        #package-external-content .btn:not([data-fancybox="gallery"]),
+        #package-external-content a.btn:not([data-fancybox="gallery"]),
+        #package-external-content a[class*="btn"]:not([data-fancybox="gallery"]),
+        #package-external-content a[class*="button"]:not([data-fancybox="gallery"]),
+        #package-external-content [role="button"]:not([data-fancybox="gallery"]) {
+          display: none !important;
+        }
       </style>
     `;
     
@@ -141,10 +246,10 @@ export function PackageDetailClient({ pkg: p }: { pkg: NusukPackage }) {
     // This helps prevent their CSS from bleeding too much into our app.
     let innerContent = fixedHtml;
     const bodyMatch = fixedHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    let styles = '';
     if (bodyMatch && bodyMatch[1]) {
       // Also try to grab the <style> tags from <head> to keep the page looking somewhat correct
       const headMatch = fixedHtml.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
-      let styles = '';
       if (headMatch && headMatch[1]) {
         // Extract all <style> and <link rel="stylesheet">
         const styleTags = headMatch[1].match(/<style[^>]*>[\s\S]*?<\/style>/gi) || [];
@@ -156,7 +261,8 @@ export function PackageDetailClient({ pkg: p }: { pkg: NusukPackage }) {
 
     return {
       isHtml: true,
-      htmlContent: injectedCSS + innerContent
+      htmlContent: injectedCSS + innerContent,
+      fullHtml: fixedHtml
     };
   }, [p.detailed_html]);
 
@@ -249,6 +355,7 @@ export function PackageDetailClient({ pkg: p }: { pkg: NusukPackage }) {
                   id="package-external-content"
                   className="prose max-w-none w-full"
                   dangerouslySetInnerHTML={{ __html: details.htmlContent }}
+                  onClick={handleContentClick}
                 />
               ) : !mounted ? (
                 <div className="h-64 rounded-xl bg-gray-100 animate-pulse" />
@@ -260,10 +367,80 @@ export function PackageDetailClient({ pkg: p }: { pkg: NusukPackage }) {
               )}
             </div>
 
+            {/* Iframe for detailed HTML */}
+            {/* {mounted && details?.fullHtml && (
+              <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100 overflow-hidden">
+                <h2 className="text-xl font-bold text-gray-900 mb-6 pb-4 border-b border-gray-100">
+                  Original Package View (Iframe)
+                </h2>
+                <iframe 
+                  srcDoc={details.fullHtml}
+                  className="w-full h-[800px] border-0 rounded-xl bg-white"
+                  title="Original Detailed HTML"
+                />
+              </div>
+            )} */}
+
           </div>
 
         </div>
       </div>
+
+      {/* Gallery Modal */}
+      {galleryOpen && galleryImages.length > 0 && (
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          onClick={() => setGalleryOpen(false)}
+        >
+          <button 
+            onClick={() => setGalleryOpen(false)}
+            className="absolute top-6 right-6 text-white hover:text-gray-300 z-50 p-2"
+            aria-label="Close"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          <button 
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              setCurrentImageIndex((prev) => (prev > 0 ? prev - 1 : galleryImages.length - 1)); 
+            }}
+            className="absolute left-4 md:left-8 text-white hover:text-gray-300 z-50 p-2 bg-black/40 rounded-full"
+            aria-label="Previous image"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 md:w-10 md:h-10">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img 
+            src={galleryImages[currentImageIndex]} 
+            alt={`Gallery image ${currentImageIndex + 1}`} 
+            className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          <button 
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              setCurrentImageIndex((prev) => (prev < galleryImages.length - 1 ? prev + 1 : 0)); 
+            }}
+            className="absolute right-4 md:right-8 text-white hover:text-gray-300 z-50 p-2 bg-black/40 rounded-full"
+            aria-label="Next image"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-8 h-8 md:w-10 md:h-10">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+            </svg>
+          </button>
+
+          <div className="absolute bottom-6 text-white font-medium text-lg bg-black/40 px-4 py-1 rounded-full">
+            {currentImageIndex + 1} / {galleryImages.length}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
