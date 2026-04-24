@@ -33,6 +33,7 @@ export type NusukPackage = {
   image_url?: string;
   available_seats?: number;
   makkah_rating?: number;
+  detailed_html?: string;
 };
 
 type UsenusukPackagesResponse = {

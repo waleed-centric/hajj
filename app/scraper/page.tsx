@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 export default function ScraperPage() {
   const [cookie, setCookie] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [result, setResult] = useState<string | null>(null);
 
   useEffect(() => {
@@ -31,10 +32,41 @@ export default function ScraperPage() {
       } else {
         setResult(`Error: ${data.error}`);
       }
-    } catch (err: any) {
-      setResult(`Error: ${err.message}`);
+    } catch (err: unknown) {
+      setResult(`Error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleScrapeDetails = async () => {
+    setLoadingDetails(true);
+    setResult("Starting to fetch detailed data. This may take a while...");
+    try {
+      localStorage.setItem("nusuk_cookie", cookie);
+      
+      const res = await fetch("/api/scrape-all-details", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          cookie,
+          filePath: "C:\\Users\\CentricTech\\OneDrive\\Desktop\\Projects\\hajj\\scrapped_data.json"
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        let msg = `Success! ${data.message} (Updated: ${data.updatedPackages}/${data.totalPackages})`;
+        if (data.errors && data.errors.length > 0) {
+          msg += ` | Errors: ${data.errors.join(" | ")}`;
+        }
+        setResult(msg);
+      } else {
+        setResult(`Error: ${data.error}`);
+      }
+    } catch (err: unknown) {
+      setResult(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setLoadingDetails(false);
     }
   };
 
@@ -56,13 +88,22 @@ export default function ScraperPage() {
               className="mt-1 w-full rounded-md border border-zinc-300 p-2 text-sm text-zinc-900 outline-none focus:border-zinc-500"
             />
           </div>
-          <button 
-            onClick={handleScrape}
-            disabled={loading || !cookie.trim()}
-            className="mt-4 rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
-          >
-            {loading ? "Scraping in progress..." : "Scrape Packages"}
-          </button>
+          <div className="flex gap-4 mt-4">
+            <button 
+              onClick={handleScrape}
+              disabled={loading || loadingDetails || !cookie.trim()}
+              className="flex-1 rounded-md bg-zinc-900 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-800 disabled:opacity-50"
+            >
+              {loading ? "Scraping..." : "Scrape Packages"}
+            </button>
+            <button 
+              onClick={handleScrapeDetails}
+              disabled={loading || loadingDetails || !cookie.trim()}
+              className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {loadingDetails ? "Fetching Details..." : "Scrape All Details"}
+            </button>
+          </div>
           
           {result && (
             <div className={`mt-4 rounded-md p-3 text-sm ${result.startsWith("Error") ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
