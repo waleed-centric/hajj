@@ -11,6 +11,7 @@ export default function ScraperPage() {
   useEffect(() => {
     const savedCookie = localStorage.getItem("nusuk_cookie");
     if (savedCookie) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCookie(savedCookie);
     }
   }, []);
@@ -28,7 +29,9 @@ export default function ScraperPage() {
       });
       const data = await res.json();
       if (res.ok) {
-        setResult(`Success! ${data.message} (Count: ${data.count})`);
+        setResult(`Success! ${data.message} (Count: ${data.count}). Now fetching details...`);
+        // Automatically trigger details scraping
+        await handleScrapeDetails();
       } else {
         setResult(`Error: ${data.error}`);
       }
@@ -48,10 +51,7 @@ export default function ScraperPage() {
       const res = await fetch("/api/scrape-all-details", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          cookie,
-          filePath: "C:\\Users\\CentricTech\\OneDrive\\Desktop\\Projects\\hajj\\scrapped_data.json"
-        }),
+        body: JSON.stringify({ cookie }),
       });
       const data = await res.json();
       if (res.ok) {

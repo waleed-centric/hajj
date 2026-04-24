@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import type { NusukPackage } from "../services/nusukPackages";
 
 function formatMoney(value: number) {
@@ -23,152 +23,245 @@ function formatDate(value: string) {
   });
 }
 
+// Icons
+const StarIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-yellow-500">
+    <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
+  </svg>
+);
+
+const BedIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
+  </svg>
+);
+
+const TentIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
+  </svg>
+);
+
+const CalendarIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z" />
+  </svg>
+);
+
 export function PackageDetailClient({ pkg: p }: { pkg: NusukPackage }) {
-  const [details, setDetails] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    async function loadDetails() {
-      const cookie = localStorage.getItem("nusuk_cookie");
-      if (!cookie) {
-        setIsLoading(false);
-        return;
-      }
-      try {
-        const res = await fetch("/api/package-details", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: p.uuid, cookie }),
-        });
-        if (res.ok) {
-          const result = await res.json();
-          if (result.success) {
-            setDetails(result.data);
-          } else {
-            setDetails(result);
-          }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
+
+  const details = useMemo(() => {
+    if (!p.detailed_html) return null;
+
+    const baseUrl = "https://hajj.nusuk.sa";
+    const fixedHtml = p.detailed_html
+      .replace(/href="(\/[^"]+)"/g, `href="${baseUrl}$1"`)
+      .replace(/src="(\/[^"]+)"/g, `src="${baseUrl}$1"`)
+      .replace(/url\((['"]?)(\/[^'"]+)\1\)/g, `url($1${baseUrl}$2$1)`);
+    
+    // Inject CSS directly to the HTML string. We scope it to #package-external-content
+    // so it doesn't break our own Next.js layout.
+    const injectedCSS = `
+      <style>
+        #package-external-content #preloader,
+        #package-external-content .preloader,
+        #package-external-content #loader,
+        #package-external-content .loader,
+        #package-external-content .loading,
+        #package-external-content .spinner,
+        #package-external-content .dimmer,
+        #package-external-content .ui.dimmer,
+        #package-external-content [class*="loader" i],
+        #package-external-content [class*="loading" i],
+        #package-external-content [class*="spinner" i],
+        #package-external-content [class*="dimmer" i],
+        #package-external-content [class*="backdrop" i],
+        #package-external-content [class*="overlay" i],
+        #package-external-content [id*="loader" i],
+        #package-external-content [id*="loading" i],
+        #package-external-content [id*="spinner" i],
+        #package-external-content [id*="overlay" i] { 
+          display: none !important; 
+          opacity: 0 !important;
+          visibility: hidden !important;
+          z-index: -9999 !important;
+          height: 0 !important;
+          width: 0 !important;
+          overflow: hidden !important;
         }
-      } catch (err) {
-        console.error("Failed to load details", err);
-      } finally {
-        setIsLoading(false);
+        #package-external-content header,
+        #package-external-content footer,
+        #package-external-content nav,
+        #package-external-content .header,
+        #package-external-content .footer,
+        #package-external-content .navbar,
+        #package-external-content .site-header,
+        #package-external-content .site-footer,
+        #package-external-content .main-header,
+        #package-external-content .main-footer,
+        #package-external-content [data-testid="header"],
+        #package-external-content [data-testid="footer"],
+        #package-external-content #header,
+        #package-external-content #footer { 
+          display: none !important; 
+        }
+        #package-external-content .dga-card,
+        #package-external-content section.dga-pt-8xl {
+          display: none !important;
+        }
+        /* Overrides for cleaner embedded view */
+        #package-external-content {
+          overflow-x: auto;
+          width: 100%;
+          max-width: 100%;
+        }
+        #package-external-content img,
+        #package-external-content table {
+          max-width: 100% !important;
+          height: auto !important;
+        }
+        #package-external-content body {
+          background: transparent !important;
+          padding-top: 0 !important;
+          margin-top: 0 !important;
+        }
+        /* Hide Google Translate UI inside injected HTML if any */
+        #package-external-content .goog-te-banner-frame { display: none !important; }
+        #package-external-content #google_translate_element { display: none !important; }
+      </style>
+    `;
+    
+    // Attempt to extract the body content to avoid injecting multiple <head> and <html> tags.
+    // This helps prevent their CSS from bleeding too much into our app.
+    let innerContent = fixedHtml;
+    const bodyMatch = fixedHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    if (bodyMatch && bodyMatch[1]) {
+      // Also try to grab the <style> tags from <head> to keep the page looking somewhat correct
+      const headMatch = fixedHtml.match(/<head[^>]*>([\s\S]*?)<\/head>/i);
+      let styles = '';
+      if (headMatch && headMatch[1]) {
+        // Extract all <style> and <link rel="stylesheet">
+        const styleTags = headMatch[1].match(/<style[^>]*>[\s\S]*?<\/style>/gi) || [];
+        const linkTags = headMatch[1].match(/<link[^>]*rel="stylesheet"[^>]*>/gi) || [];
+        styles = styleTags.join('\n') + '\n' + linkTags.join('\n');
       }
+      innerContent = styles + '\n' + bodyMatch[1];
     }
-    loadDetails();
-  }, [p.uuid]);
+
+    return {
+      isHtml: true,
+      htmlContent: injectedCSS + innerContent
+    };
+  }, [p.detailed_html]);
 
   return (
-    <div className="rounded-xl border border-[#e5e7eb] bg-white p-0 shadow-sm overflow-hidden flex flex-col md:flex-row">
-      {p.image_url ? (
-        <div className="w-full md:w-1/3 bg-zinc-100 shrink-0">
+    <div className="w-full max-w-7xl mx-auto bg-gray-50 min-h-screen pb-12 font-sans">
+      
+      {/* Hero Section */}
+      <div className="relative w-full h-80 md:h-[400px] lg:h-[500px] bg-zinc-800 overflow-hidden shadow-lg">
+        {p.image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img 
             src={p.image_url} 
             alt={p.name} 
-            className="h-full w-full object-cover max-h-64 md:max-h-full" 
+            className="absolute inset-0 w-full h-full object-cover opacity-80" 
           />
-        </div>
-      ) : null}
-      
-      <div className="flex flex-1 flex-col p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="inline-block rounded-md bg-[#fdf8f3] px-2.5 py-1 text-xs font-semibold text-[#b8860b] mb-3">
-              {p.category_name}
-            </div>
-            <h3 className="text-xl font-bold text-zinc-900">{p.name}</h3>
-            <div className="mt-1 flex items-center gap-2 text-sm text-zinc-600">
-              <span className="font-medium text-zinc-800">{p.provider_name}</span>
-              {p.makkah_rating ? (
-                <span className="flex items-center text-[#b8860b]">
-                  {'★'.repeat(p.makkah_rating)}
-                </span>
-              ) : null}
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold text-zinc-900">{formatMoney(p.total_price)}</div>
-            {p.available_seats !== undefined && (
-              <div className="text-xs font-medium text-emerald-600 mt-1">
-                {p.available_seats} seats left
-              </div>
-            )}
-          </div>
-        </div>
-
-        {p.description && (
-          <p className="mt-4 text-sm leading-relaxed text-zinc-600 border-b border-zinc-100 pb-4">
-            {p.description}
-          </p>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-br from-zinc-700 to-zinc-900" />
         )}
+        
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
 
-        <div className="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
-          {/* Camps Section */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">Camps</h4>
-            {p.camps && p.camps.length > 0 ? (
-              <ul className="space-y-2">
-                {p.camps.map(c => (
-                  <li key={c.name} className="flex justify-between items-center text-sm">
-                    <span className="text-zinc-800">{c.name}</span>
-                    <span className="font-medium text-zinc-900">{formatMoney(c.price)}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-zinc-500 italic">No camps listed</p>
-            )}
-          </div>
+        {/* Hero Content */}
+        <div className="absolute bottom-0 left-0 w-full p-6 md:p-10 lg:p-12">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="max-w-3xl">
+              <span className="inline-block px-3 py-1 bg-amber-500/90 text-white text-xs font-bold uppercase tracking-wider rounded-full mb-4 shadow-sm">
+                {p.category_name}
+              </span>
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-white leading-tight mb-2 drop-shadow-md">
+                {p.name}
+              </h1>
+              <div className="flex items-center gap-3 text-gray-200 text-sm md:text-base font-medium">
+                <span className="bg-black/30 px-3 py-1 rounded-md backdrop-blur-sm">
+                  {p.provider_name}
+                </span>
+                {p.makkah_rating ? (
+                  <span className="flex items-center gap-1 bg-black/30 px-3 py-1 rounded-md backdrop-blur-sm">
+                    {p.makkah_rating} <StarIcon />
+                  </span>
+                ) : null}
+              </div>
+            </div>
 
-          {/* Hotels Section */}
-          <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3">Hotels</h4>
-            {p.hotels && p.hotels.length > 0 ? (
-              <ul className="space-y-3">
-                {p.hotels.map(h => (
-                  <li key={h.name} className="text-sm">
-                    <div className="font-medium text-zinc-800">{h.name}</div>
-                    <div className="text-xs text-zinc-500 mt-0.5">{h.type} • {formatDate(h.check_in)} to {formatDate(h.check_out)}</div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-zinc-500 italic">No hotels listed</p>
-            )}
+            {/* Price and Seats in Hero */}
+            <div className="flex flex-col items-end gap-3 bg-black/40 p-4 md:p-6 rounded-2xl backdrop-blur-md border border-white/10 shrink-0">
+              <div className="text-right">
+                <span className="block text-xs font-medium text-gray-300 uppercase tracking-wider mb-1">Total Price</span>
+                <div className="text-3xl md:text-4xl font-extrabold text-white drop-shadow-lg">
+                  {formatMoney(p.total_price)}
+                </div>
+              </div>
+              {p.available_seats !== undefined && (
+                <div className="flex items-center gap-3 bg-white/10 px-4 py-2 rounded-xl">
+                  <span className="text-sm font-medium text-gray-200">Available Seats</span>
+                  <span className="font-bold text-emerald-400 bg-emerald-900/50 px-2.5 py-0.5 rounded-lg border border-emerald-500/30">
+                    {p.available_seats}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Dynamic Details from API */}
-        <div className="mt-6 pt-4 border-t border-zinc-100">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-3 flex items-center gap-2">
-            Live API Details
-            {isLoading && <span className="animate-pulse bg-zinc-200 h-2 w-12 rounded-full inline-block"></span>}
-          </h4>
+      {/* Main Content Layout */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+        <div className="flex flex-col gap-8">
           
-          {!isLoading && details ? (
-            details.isHtml && details.htmlContent ? (
-              <div className="rounded-lg border border-zinc-200 bg-white overflow-hidden" style={{ height: "600px" }}>
-                <iframe
-                  srcDoc={details.htmlContent}
-                  className="w-full h-full border-0"
-                  title="Package Details"
-                  sandbox="allow-same-origin allow-scripts"
-                />
-              </div>
-            ) : details.isHtml || details.error ? (
-              <div className="rounded-lg bg-zinc-50 p-4 overflow-auto max-h-64 text-xs text-zinc-600 border border-zinc-200">
-                <p className="font-semibold text-red-600 mb-2">
-                  Notice: {details.error || "API returned HTML (possible session expiration or login requirement)."}
+          {/* Main Content - Details */}
+          <div className="w-full space-y-8">
+            
+            {/* Description */}
+            {p.description && (
+              <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100">
+                <h2 className="text-xl font-bold text-gray-900 mb-4">About this Package</h2>
+                <p className="text-gray-600 leading-relaxed text-base">
+                  {p.description}
                 </p>
-                <pre className="font-mono text-[10px] whitespace-pre-wrap">{details.snippet || JSON.stringify(details, null, 2)}</pre>
               </div>
-            ) : (
-              <div className="rounded-lg bg-zinc-50 p-4 overflow-auto max-h-64 text-xs font-mono text-zinc-600 border border-zinc-200">
-                <pre>{JSON.stringify(details, null, 2)}</pre>
-              </div>
-            )
-          ) : !isLoading ? (
-            <p className="text-xs text-zinc-500 italic">API not available without a valid session cookie.</p>
-          ) : null}
+            )}
+
+            {/* External HTML Content rendered directly */}
+            <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-gray-100 overflow-hidden">
+              <h2 className="text-xl font-bold text-gray-900 mb-6 pb-4 border-b border-gray-100">
+                Detailed Package Content
+              </h2>
+              {mounted && details?.htmlContent ? (
+                <div 
+                  id="package-external-content"
+                  className="prose max-w-none w-full"
+                  dangerouslySetInnerHTML={{ __html: details.htmlContent }}
+                />
+              ) : !mounted ? (
+                <div className="h-64 rounded-xl bg-gray-100 animate-pulse" />
+              ) : (
+                <div className="p-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  <p className="text-gray-500 font-medium">No detailed content available for this package.</p>
+                  <p className="text-sm text-gray-400 mt-1">Please ensure the details have been scraped.</p>
+                </div>
+              )}
+            </div>
+
+          </div>
+
         </div>
       </div>
     </div>

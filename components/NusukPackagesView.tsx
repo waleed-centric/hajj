@@ -57,6 +57,7 @@ export function NusukPackagesView(props: {
 
   // Reset page to 1 whenever filters change
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCurrentPage(1);
   }, [query, availableOnly, category]);
 

@@ -1,5 +1,5 @@
-import fs from "fs/promises";
-import path from "path";
+import connectToDatabase from "@/lib/mongodb";
+import Package from "@/models/Package";
 
 export type NusukPackageCamp = {
   name: string;
@@ -34,11 +34,6 @@ export type NusukPackage = {
   available_seats?: number;
   makkah_rating?: number;
   detailed_html?: string;
-};
-
-type UsenusukPackagesResponse = {
-  data: unknown;
-  last_updated?: unknown;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -134,33 +129,38 @@ function normalizePackages(value: unknown): NusukPackage[] {
         image_url: normalizeString(p.imageUrl || p.image_url),
         available_seats: p.availableSeats !== undefined ? normalizeNumber(p.availableSeats) : undefined,
         makkah_rating: p.makkahRating !== undefined ? normalizeNumber(p.makkahRating) : undefined,
+        detailed_html: p.detailed_html ? normalizeString(p.detailed_html) : undefined,
       } as NusukPackage;
     })
     .filter((p): p is NusukPackage => p !== null);
 }
 
-export async function fetchUsenusukPackages(options?: {
-  revalidateSeconds?: number;
-}) {
+export async function fetchUsenusukPackages() {
   try {
-    const filePath = path.join(process.cwd(), "scrapped_data.json");
-    const fileContent = await fs.readFile(filePath, "utf-8");
-    const json = JSON.parse(fileContent);
+    await connectToDatabase();
     
-    // In scrapped_data.json, data is the array itself, or it might be wrapped in { data: [...] }
-    const rawPackages = Array.isArray(json) ? json : (json.data || []);
-    const lastUpdated = json.last_updated || new Date().toISOString();
+    // Fetch all packages from MongoDB
+    const dbPackages = await Package.find({}).lean();
+    
+    // In MongoDB, the result is the array itself
+    const rawPackages = Array.isArray(dbPackages) ? dbPackages : [];
+    
+    // Get the most recent update time or fallback
+    const latestDoc = await Package.findOne({}).sort({ updatedAt: -1 }).lean() as { updatedAt?: string | Date } | null;
+    const lastUpdated = latestDoc?.updatedAt ? new Date(latestDoc.updatedAt).toISOString() : new Date().toISOString();
+    
     const packages = normalizePackages(rawPackages);
 
     return {
-      source: "Local Scraped Data",
+      source: "MongoDB Atlas",
       lastUpdated,
       packages,
     };
-  } catch (error: any) {
-    console.error("Error reading scraped packages:", error.message);
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Internal Server Error";
+    console.error("Error reading scraped packages from MongoDB:", msg);
     return {
-      source: "Local Scraped Data (File not found, please scrape first)",
+      source: "MongoDB Atlas (Error or no data, please scrape first)",
       lastUpdated: null,
       packages: [],
     };

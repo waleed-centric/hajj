@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
+import connectToDatabase from "@/lib/mongodb";
+import Package from "@/models/Package";
 
 export async function POST(request: Request) {
   try {
@@ -77,18 +77,30 @@ export async function POST(request: Request) {
 
     const data = await res.json();
 
-    // Save directly to scrapped_data.json in root directory
-    const filePath = path.join(process.cwd(), "scrapped_data.json");
-    
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
+    // Save directly to MongoDB
+    await connectToDatabase();
+
+    // Upsert all packages
+    const bulkOps = data.map((pkg: Record<string, unknown>) => ({
+      updateOne: {
+        filter: { uuid: pkg.uuid },
+        update: { $set: pkg },
+        upsert: true,
+      },
+    }));
+
+    if (bulkOps.length > 0) {
+      await Package.bulkWrite(bulkOps);
+    }
 
     return NextResponse.json({
-      message: "Data scraped and saved successfully to scrapped_data.json",
+      message: "Data scraped and saved successfully to MongoDB",
       count: data.length || "Unknown",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Internal Server Error";
     return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
+      { error: msg },
       { status: 500 }
     );
   }

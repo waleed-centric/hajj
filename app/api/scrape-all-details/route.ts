@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import fs from "fs/promises";
-import path from "path";
+import connectToDatabase from "@/lib/mongodb";
+import Package from "@/models/Package";
 
 export async function POST(request: Request) {
   try {
-    const { cookie, filePath: providedFilePath } = await request.json();
+    const { cookie } = await request.json();
 
     if (!cookie) {
       return NextResponse.json(
@@ -13,25 +13,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const filePath = providedFilePath || path.join(process.cwd(), "scrapped_data.json");
+    await connectToDatabase();
     
-    // Check if file exists
-    try {
-      await fs.access(filePath);
-    } catch {
+    // Fetch all packages from MongoDB
+    const packages = await Package.find({}).lean();
+
+    if (!packages || packages.length === 0) {
       return NextResponse.json(
-        { error: "scrapped_data.json not found. Please scrape packages first." },
+        { error: "No packages found in MongoDB. Please scrape packages first." },
         { status: 404 }
-      );
-    }
-
-    const fileContent = await fs.readFile(filePath, "utf-8");
-    const packages = JSON.parse(fileContent);
-
-    if (!Array.isArray(packages)) {
-      return NextResponse.json(
-        { error: "Invalid data format in scrapped_data.json." },
-        { status: 400 }
       );
     }
 
@@ -72,6 +62,10 @@ export async function POST(request: Request) {
               break; // Stop loop if session is expired
             }
             pkg.detailed_html = html;
+            
+            // Save detailed_html to MongoDB
+            await Package.updateOne({ uuid: pkg.uuid }, { $set: { detailed_html: html } });
+            
             updatedCount++;
           } else {
             const errText = await res.text();
@@ -81,18 +75,16 @@ export async function POST(request: Request) {
           
           // Small delay to be polite to the server
           await new Promise(resolve => setTimeout(resolve, 1500)); // increased delay
-        } catch (error: any) {
-          errors.push(`Package ${pkg.uuid}: Fetch Error - ${error.message}`);
+        } catch (error: unknown) {
+          const msg = error instanceof Error ? error.message : String(error);
+          errors.push(`Package ${pkg.uuid}: Fetch Error - ${msg}`);
           console.error(`Failed to fetch details for package ${pkg.uuid}:`, error);
         }
       }
     }
 
-    // Write the updated data back
-    await fs.writeFile(filePath, JSON.stringify(packages, null, 2), "utf-8");
-
     return NextResponse.json({
-      message: "Detailed data fetched and nested successfully.",
+      message: "Detailed data fetched and saved to MongoDB successfully.",
       totalPackages: packages.length,
       updatedPackages: updatedCount,
       errors: errors.slice(0, 5) // Return first 5 errors to frontend for debugging

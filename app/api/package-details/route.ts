@@ -1,6 +1,4 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
 
 export async function POST(request: Request) {
   try {
@@ -40,13 +38,13 @@ export async function POST(request: Request) {
         { status: 401 }
       );
     }
-    const token = match[1];
+    // const token = match[1];
 
     // Step 2: Fetch package details API
     // User requested to try /sp/package/summary
     const summaryUrl = `https://hajj.nusuk.sa/sp/package/summary/${id}`;
     
-    let res = await fetch(summaryUrl, {
+    const res = await fetch(summaryUrl, {
       method: "GET",
       headers: {
         ...baseHeaders,
@@ -63,13 +61,8 @@ export async function POST(request: Request) {
 
     const text = await res.text();
 
-    // Debug: Save the fetched HTML so we can read it in the IDE
-    try {
-      const debugPath = path.join(process.cwd(), `summary_${id}.html`);
-      fs.writeFileSync(debugPath, text);
-    } catch (e) {
-      console.error("Failed to save debug HTML:", e);
-    }
+    // Debug code removed to stop generating local files
+
 
     // Check if it's a login page
     if (text.includes("Login to Your Account") || res.url.includes("/account/authorize")) {
@@ -120,7 +113,7 @@ export async function POST(request: Request) {
     if (jsonMatch) {
       try {
         embeddedData = JSON.parse(jsonMatch[1]);
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
