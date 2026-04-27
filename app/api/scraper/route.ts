@@ -80,22 +80,50 @@ export async function POST(request: Request) {
     // Save directly to MongoDB
     await connectToDatabase();
 
-    // Upsert all packages
-    const bulkOps = data.map((pkg: Record<string, unknown>) => ({
-      updateOne: {
-        filter: { uuid: pkg.uuid },
-        update: { $set: pkg },
-        upsert: true,
-      },
-    }));
+    const scrapedUuids = data.map((pkg: Record<string, unknown>) => pkg.uuid);
+
+    // 1. Jo entries abhi scrape nahi hui, unko "sold out" mark kar do (delete nahi karna)
+    await Package.updateMany(
+      { uuid: { $nin: scrapedUuids } },
+      { $set: { isSoldOut: true } }
+    );
+
+    // 2. Jo entries already database mein hain unki UUIDs nikaal lo
+    const existingPackages = await Package.find({ uuid: { $in: scrapedUuids } }, { uuid: 1 });
+    const existingUuids = new Set(existingPackages.map((p) => p.uuid));
+
+    const bulkOps = [];
+
+    for (const pkg of data) {
+      if (existingUuids.has(pkg.uuid)) {
+        // 3. Agar entry already hai, toh pura data update/override nahi karna (ignore it)
+        // Sirf ensure karna hai ke agar wo pehle sold out thi, toh ab available (false) ho jaye
+        bulkOps.push({
+          updateOne: {
+            filter: { uuid: pkg.uuid },
+            update: { $set: { isSoldOut: false } },
+          },
+        });
+      } else {
+        // 4. Agar entry bilkul nayi hai, toh insert kar do
+        pkg.isSoldOut = false;
+        bulkOps.push({
+          insertOne: {
+            document: pkg,
+          },
+        });
+      }
+    }
 
     if (bulkOps.length > 0) {
       await Package.bulkWrite(bulkOps);
     }
 
     return NextResponse.json({
-      message: "Data scraped and saved successfully to MongoDB",
-      count: data.length || "Unknown",
+      message: "Data scraped and saved successfully. New packages added, existing ignored, unavailable marked as sold out.",
+      scrapedCount: data.length || 0,
+      newAdded: data.length - existingUuids.size,
+      existingIgnored: existingUuids.size
     });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Internal Server Error";

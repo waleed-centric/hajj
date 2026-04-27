@@ -184,12 +184,14 @@ export function NusukPackagesView(props: {
                     <div className="text-right text-sm">
                       <span
                         className={
-                          p.available
+                          p.isSoldOut
+                            ? "rounded-full bg-red-50 px-2 py-1 text-red-700"
+                            : p.available
                             ? "rounded-full bg-emerald-50 px-2 py-1 text-emerald-700"
                             : "rounded-full bg-zinc-100 px-2 py-1 text-zinc-700"
                         }
                       >
-                        {p.available ? "Available" : "Full"}
+                        {p.isSoldOut ? "Sold Out" : p.available ? "Available" : "Full"}
                       </span>
                     </div>
                   </div>

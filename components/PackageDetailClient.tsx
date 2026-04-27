@@ -12,39 +12,10 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
-function formatDate(value: string) {
-  if (!value) return "-";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("en-GB", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  });
-}
-
 // Icons
 const StarIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-yellow-500">
     <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
-  </svg>
-);
-
-const BedIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
-  </svg>
-);
-
-const TentIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
-  </svg>
-);
-
-const CalendarIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5m-9-6h.008v.008H12v-.008zM12 15h.008v.008H12V15zm0 2.25h.008v.008H12v-.008zM9.75 15h.008v.008H9.75V15zm0 2.25h.008v.008H9.75v-.008zM7.5 15h.008v.008H7.5V15zm0 2.25h.008v.008H7.5v-.008zm6.75-4.5h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V15zm0 2.25h.008v.008h-.008v-.008zm2.25-4.5h.008v.008H16.5v-.008zm0 2.25h.008v.008H16.5V15z" />
   </svg>
 );
 
@@ -295,10 +266,17 @@ export function PackageDetailClient({ pkg: p }: { pkg: NusukPackage }) {
               <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-white leading-tight mb-2 drop-shadow-md">
                 {p.name}
               </h1>
-              <div className="flex items-center gap-3 text-gray-200 text-sm md:text-base font-medium">
+              <div className="flex items-center gap-3 text-gray-200 text-sm md:text-base font-medium mb-3">
                 <span className="bg-black/30 px-3 py-1 rounded-md backdrop-blur-sm">
                   {p.provider_name}
                 </span>
+                <span className={`px-3 py-1 rounded-md backdrop-blur-sm font-bold ${
+                  p.isSoldOut ? "bg-red-500/80 text-white" : p.available ? "bg-emerald-500/80 text-white" : "bg-zinc-500/80 text-white"
+                }`}>
+                  {p.isSoldOut ? "Sold Out" : p.available ? "Available" : "Full"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
                 {p.makkah_rating ? (
                   <span className="flex items-center gap-1 bg-black/30 px-3 py-1 rounded-md backdrop-blur-sm">
                     {p.makkah_rating} <StarIcon />

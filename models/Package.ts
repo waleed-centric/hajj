@@ -65,6 +65,7 @@ export interface IPackage extends Document {
   isGlobalMergedToB2C: boolean;
   isGlobalMergedToCourtesy: boolean;
   detailed_html: string;
+  isSoldOut: boolean;
 }
 
 const PackageSchema: Schema = new mongoose.Schema(
@@ -131,7 +132,8 @@ const PackageSchema: Schema = new mongoose.Schema(
     numberOfQuotaTypes: { type: Number },
     isGlobalMergedToB2C: { type: Boolean },
     isGlobalMergedToCourtesy: { type: Boolean },
-    detailed_html: { type: String }
+    detailed_html: { type: String },
+    isSoldOut: { type: Boolean, default: false }
   },
   {
     timestamps: true,

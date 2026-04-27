@@ -35,6 +35,7 @@ export type NusukPackage = {
   makkah_rating?: number;
   detailed_html?: string;
   services?: string;
+  isSoldOut?: boolean;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -103,7 +104,9 @@ function normalizePackages(value: unknown): NusukPackage[] {
       const total_price = normalizeNumber(p.totalPrice || p.total_price);
       
       let available = normalizeBoolean(p.available);
-      if (p.availableSeats !== undefined) {
+      if (p.isSoldOut === true) {
+        available = false;
+      } else if (p.availableSeats !== undefined) {
         available = normalizeNumber(p.availableSeats) > 0;
       } else if (p.availabilityStatus !== undefined) {
         available = normalizeNumber(p.availabilityStatus) === 1;
@@ -132,6 +135,7 @@ function normalizePackages(value: unknown): NusukPackage[] {
         makkah_rating: p.makkahRating !== undefined ? normalizeNumber(p.makkahRating) : undefined,
         detailed_html: p.detailed_html ? normalizeString(p.detailed_html) : undefined,
         services: p.services ? normalizeString(p.services) : undefined,
+        isSoldOut: normalizeBoolean(p.isSoldOut),
       } as NusukPackage;
     })
     .filter((p): p is NusukPackage => p !== null);
