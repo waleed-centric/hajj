@@ -32,6 +32,11 @@ async function connectToDatabase() {
       family: 4, // Use IPv4, skip trying IPv6
     };
 
+    // Enable Mongoose debugging in development mode
+    if (process.env.NODE_ENV !== "production") {
+      mongoose.set("debug", true);
+    }
+
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
       return mongoose;
     });

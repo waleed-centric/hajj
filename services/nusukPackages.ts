@@ -1,5 +1,7 @@
 import connectToDatabase from "@/lib/mongodb";
 import Package from "@/models/Package";
+import fs from "fs";
+import path from "path";
 
 export type NusukPackageCamp = {
   name: string;
@@ -34,6 +36,8 @@ export type NusukPackage = {
   available_seats?: number;
   makkah_rating?: number;
   detailed_html?: string;
+  extracted_makkah_hotel?: string;
+  extracted_madinah_hotel?: string;
   services?: string;
   isSoldOut?: boolean;
 };
@@ -114,6 +118,19 @@ function normalizePackages(value: unknown): NusukPackage[] {
 
       if (!uuid || !name) return null;
 
+      let extracted_makkah_hotel: string | undefined;
+      let extracted_madinah_hotel: string | undefined;
+
+      const detailed_html = p.detailed_html ? normalizeString(p.detailed_html) : undefined;
+      
+      if (detailed_html) {
+        const makkahMatch = detailed_html.match(/<h4[^>]*class="[^"]*dga-card-title[^"]*"[^>]*>([^<]+)<\/h4>\s*<p[^>]*>(?:Hotel in Makkah|Makkah Accommodation)<\/p>/i);
+        const madinahMatch = detailed_html.match(/<h4[^>]*class="[^"]*dga-card-title[^"]*"[^>]*>([^<]+)<\/h4>\s*<p[^>]*>(?:Hotel in Madinah|Madinah Accommodation)<\/p>/i);
+        
+        if (makkahMatch) extracted_makkah_hotel = makkahMatch[1].trim();
+        if (madinahMatch) extracted_madinah_hotel = madinahMatch[1].trim();
+      }
+
       return {
         uuid,
         name,
@@ -133,7 +150,9 @@ function normalizePackages(value: unknown): NusukPackage[] {
         image_url: normalizeString(p.imageUrl || p.image_url),
         available_seats: p.availableSeats !== undefined ? normalizeNumber(p.availableSeats) : undefined,
         makkah_rating: p.makkahRating !== undefined ? normalizeNumber(p.makkahRating) : undefined,
-        detailed_html: p.detailed_html ? normalizeString(p.detailed_html) : undefined,
+        detailed_html,
+        extracted_makkah_hotel,
+        extracted_madinah_hotel,
         services: p.services ? normalizeString(p.services) : undefined,
         isSoldOut: normalizeBoolean(p.isSoldOut),
       } as NusukPackage;
@@ -148,7 +167,35 @@ export async function fetchUsenusukPackages() {
     // Fetch all packages from MongoDB
     const dbPackages = await Package.find({}).lean();
     
+    // if (dbPackages && dbPackages.length > 0) {
+    //   // Find package with madinahGroundCenterId but NO makkahGroundCenterId
+    //   const madinahOnly = dbPackages.filter(p => p.madinahGroundCenterId && !p.makkahGroundCenterId);
+    //   console.log(`\n========================================`);
+    //   console.log(`Total Packages: ${dbPackages.length}`);
+    //   console.log(`Packages with madinahGroundCenterId but NO makkahGroundCenterId: ${madinahOnly.length}`);
+    //   if (madinahOnly.length > 0) {
+    //     console.log(`Example UUID: ${madinahOnly[0].uuid}`);
+    //     const dumpPath = path.join(process.cwd(), 'sample_madinah_only.json');
+    //     fs.writeFileSync(dumpPath, JSON.stringify(madinahOnly[0], null, 2));
+    //     console.log(`Saved sample to: ${dumpPath}`);
+    //   }
+
+    //   // Find package with makkahGroundCenterId but NO madinahGroundCenterId
+    //   const makkahOnly = dbPackages.filter(p => p.makkahGroundCenterId && !p.madinahGroundCenterId);
+    //   console.log(`Packages with makkahGroundCenterId but NO madinahGroundCenterId: ${makkahOnly.length}`);
+      
+    //   // Both exist
+    //   const bothCenters = dbPackages.filter(p => p.makkahGroundCenterId && p.madinahGroundCenterId);
+    //   console.log(`Packages with BOTH centers: ${bothCenters.length}`);
+
+    //   // Neither exist
+    //   const neitherCenters = dbPackages.filter(p => !p.makkahGroundCenterId && !p.madinahGroundCenterId);
+    //   console.log(`Packages with NEITHER center: ${neitherCenters.length}`);
+    //   console.log(`========================================\n`);
+    // }
+    
     // In MongoDB, the result is the array itself
+    
     const rawPackages = Array.isArray(dbPackages) ? dbPackages : [];
     
     // Get the most recent update time or fallback
