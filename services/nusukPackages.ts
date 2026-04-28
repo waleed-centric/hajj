@@ -26,6 +26,7 @@ export type NusukPackage = {
   end_date: string;
   duration: number;
   total_price: number;
+  vat?: number;
   available: boolean;
   shifting?: boolean;
   zone_name?: string | null;
@@ -48,6 +49,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function normalizeString(value: unknown): string {
   if (typeof value === "string") return value;
+  if (value instanceof Date && !isNaN(value.getTime())) return value.toISOString();
   return "";
 }
 
@@ -106,6 +108,7 @@ function normalizePackages(value: unknown): NusukPackage[] {
       const end_date = normalizeString(p.endDate || p.end_date);
       const duration = normalizeNumber(p.packageDurationDays || p.duration);
       const total_price = normalizeNumber(p.totalPrice || p.total_price);
+      const vat = p.vat !== undefined ? normalizeNumber(p.vat) : undefined;
       
       let available = normalizeBoolean(p.available);
       if (p.isSoldOut === true) {
@@ -141,6 +144,7 @@ function normalizePackages(value: unknown): NusukPackage[] {
         end_date,
         duration,
         total_price,
+        vat,
         available,
         shifting: normalizeBoolean(p.shifting) || category_name.toLowerCase().includes("shifting"),
         zone_name: normalizeString(p.housingZoneNameEn || p.zoneNameEn || p.zone_name),

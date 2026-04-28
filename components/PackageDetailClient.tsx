@@ -210,6 +210,11 @@ export function PackageDetailClient({ pkg: p }: { pkg: NusukPackage }) {
         #package-external-content [role="button"]:not([data-fancybox="gallery"]) {
           display: none !important;
         }
+
+        /* Hide specific floating summary area */
+        #package-external-content .package-summary-floating-area {
+          display: none !important;
+        }
       </style>
     `;
     

@@ -14,6 +14,17 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
+function formatDateStr(dateStr?: string) {
+  if (!dateStr) return "-";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+  } catch {
+    return dateStr;
+  }
+}
+
 export function NusukPackagesView(props: {
   source: string;
   lastUpdated: string | null;
@@ -28,6 +39,7 @@ export function NusukPackagesView(props: {
   const [serviceProvider, setServiceProvider] = useState("");
   const [categoryName, setCategoryName] = useState("");
   const [flightCity, setFlightCity] = useState("");
+  const [availability, setAvailability] = useState("all"); // 'all', 'available', 'sold_out'
   const [sortBy, setSortBy] = useState("none");
   
   const [currentPage, setCurrentPage] = useState(1);
@@ -65,6 +77,7 @@ export function NusukPackagesView(props: {
     setServiceProvider("");
     setCategoryName("");
     setFlightCity("");
+    setAvailability("all");
     setSortBy("none");
   }
 
@@ -99,6 +112,18 @@ export function NusukPackagesView(props: {
          if (!isMakkah) return false;
       }
 
+      // Availability
+      if (availability === "available" && p.isSoldOut) return false;
+      if (availability === "sold_out" && !p.isSoldOut) return false;
+
+      // Flight City
+      if (flightCity) {
+        const cityLower = flightCity.toLowerCase();
+        const inDescription = p.description?.toLowerCase().includes(cityLower);
+        const inHtml = p.detailed_html?.toLowerCase().includes(cityLower);
+        if (!inDescription && !inHtml) return false;
+      }
+
       return true;
     });
 
@@ -113,12 +138,12 @@ export function NusukPackagesView(props: {
     }
 
     return result;
-  }, [props.packages, packageName, categoryName, serviceProvider, camp, shifting, routeType, sortBy]);
+  }, [props.packages, packageName, categoryName, serviceProvider, camp, shifting, routeType, flightCity, availability, sortBy]);
 
   // Reset page to 1 whenever filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [packageName, categoryName, serviceProvider, camp, shifting, routeType, sortBy]);
+  }, [packageName, categoryName, serviceProvider, camp, shifting, routeType, flightCity, availability, sortBy]);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginated = useMemo(() => {
@@ -307,7 +332,25 @@ export function NusukPackagesView(props: {
                   <label className="text-sm font-semibold text-zinc-900">Flight Departure City</label>
                   <select value={flightCity} onChange={e => setFlightCity(e.target.value)} className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm outline-none focus:border-emerald-600 bg-white">
                     <option value="">Select Cities</option>
-                    {/* Assuming we don't have this data readily available, just a placeholder or could map if available */}
+                    {[
+                      "Auckland", "Barcelona", "Boston", "California", "Chicago", 
+                      "Dallas", "Detroit", "Houston", "London", "Los Angeles", 
+                      "Madrid", "Melbourne", "Miami", "Milano", "Montreal", 
+                      "New York", "Perth", "San Francisco", "Seattle", "Sydney", 
+                      "Toronto", "Vancouver", "Washington"
+                    ].map(city => <option key={city} value={city}>{city}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-semibold text-zinc-900">Availability</label>
+                  <select
+                    className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm outline-none focus:border-emerald-600 bg-white"
+                    value={availability}
+                    onChange={(e) => setAvailability(e.target.value)}
+                  >
+                    <option value="all">All Packages</option>
+                    <option value="available">Available Only</option>
+                    <option value="sold_out">Sold Out Only</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
@@ -404,42 +447,78 @@ export function NusukPackagesView(props: {
             const madinahHotelName = p.extracted_madinah_hotel || p.hotels?.find(h => h.name.toLowerCase().includes('madinah') || h.type.toLowerCase().includes('madinah'))?.name;
             
             return (
-              <Link key={p.uuid} href={`/packages/${p.uuid}`} target="_blank" className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white hover:shadow-md transition-shadow group">
-                <div className="flex flex-col p-5 gap-4 h-full">
-                  <div className="flex justify-between items-start gap-2">
-                    <h3 className="font-semibold text-zinc-900 text-lg leading-tight group-hover:text-emerald-600 transition-colors line-clamp-2">{p.name}</h3>
-                    <span className={`shrink-0 whitespace-nowrap text-xs px-2.5 py-1 rounded-full ${p.isSoldOut ? "bg-red-50 text-red-700" : p.available ? "bg-emerald-50 text-emerald-700" : "bg-zinc-100 text-zinc-700"}`}>
-                      {p.isSoldOut ? "Sold Out" : p.available ? "Available" : "Full"}
-                    </span>
+              <Link key={p.uuid} href={`/packages/${p.uuid}`} target="_blank" className="flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white hover:shadow-lg transition-shadow group h-full relative">
+                
+                {/* Sold out overlay / indicator */}
+                {p.isSoldOut && (
+                  <div className="absolute top-4 left-4 z-10 bg-red-600 text-white text-xs font-bold px-2.5 py-1 rounded shadow-sm">
+                    SOLD OUT
                   </div>
+                )}
+
+                <div className="flex flex-col p-4 gap-4 h-full relative">
                   
-                  <div className="flex flex-wrap gap-2 text-xs font-medium text-zinc-600">
-                    {p.duration && <span className="bg-zinc-100 px-2 py-1 rounded">{p.duration} Days</span>}
-                    <span className="bg-zinc-100 px-2 py-1 rounded">{p.shifting ? "Shifting" : "Non-Shifting"}</span>
-                    {p.category_name && <span className="bg-zinc-100 px-2 py-1 rounded truncate max-w-37.5">{p.category_name}</span>}
-                  </div>
-
-                  <div className="flex flex-col gap-2 mt-2 text-sm text-zinc-700">
-                    <div className="flex gap-2 items-start">
-                      <svg className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-zinc-900 text-xs">Makkah Hotel</span>
-                        <span className="truncate max-w-37.5" title={makkahHotelName || "-"}>{makkahHotelName || "-"}</span>
+                  {/* Top Section */}
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <h3 className="font-bold text-[#023b32] text-lg leading-tight group-hover:text-emerald-700 transition-colors uppercase tracking-tight line-clamp-2" title={p.name}>{p.name}</h3>
+                      <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
+                        {p.category_name && <span className="bg-[#f0f4f1] text-[#337a5b] px-2 py-1 rounded">{p.category_name}</span>}
+                        {p.camps && p.camps.length > 0 && <span className="bg-[#f0f4f1] text-[#337a5b] px-2 py-1 rounded truncate max-w-37.5" title={p.camps[0].name}>{p.camps[0].name}</span>}
                       </div>
                     </div>
-                    <div className="flex gap-2 items-start">
-                      <svg className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                      <div className="flex flex-col">
-                        <span className="font-medium text-zinc-900 text-xs">Madinah Hotel</span>
-                        <span className="truncate max-w-37.5" title={madinahHotelName || "-"}>{madinahHotelName || "-"}</span>
+                    <div className="flex flex-col items-start bg-zinc-50/50 p-2.5 rounded-lg border border-zinc-100">
+                      <div className="flex items-baseline gap-1 text-[#0f766e]">
+                        <span className="font-semibold text-sm">SAR</span>
+                        <span className="text-2xl font-bold tracking-tight leading-none">{p.total_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
+                      {p.vat && <div className="text-[10px] text-zinc-500 font-medium tracking-wide mt-0.5">+ VAT SAR {p.vat.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>}
                     </div>
                   </div>
 
-                  <div className="mt-auto pt-4 border-t border-zinc-100 flex items-center justify-between">
-                    <span className="text-xs text-zinc-500 truncate max-w-37.5">{p.provider_name || "-"}</span>
-                    <span className="text-lg font-bold text-zinc-900">{formatMoney(p.total_price)}</span>
+                  {/* Hotels Section */}
+                  <div className="flex gap-2 flex-col">
+                    {/* Makkah Hotel */}
+                    <div className="flex-1 flex gap-2.5 p-2.5 rounded-lg border border-[#d1fae5] bg-[#f0fdf4] min-w-0 items-center">
+                      <div className="bg-[#d1fae5] p-1.5 rounded h-fit text-[#059669] shrink-0">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-semibold text-xs text-zinc-900 truncate" title={makkahHotelName || "Makkah Hotel"}>{makkahHotelName || "Makkah Hotel"}</span>
+                        <span className="text-[10px] text-zinc-500">Makkah Hotel</span>
+                      </div>
+                    </div>
+                    {/* Madinah Hotel */}
+                    {madinahHotelName && (
+                      <div className="flex-1 flex gap-2.5 p-2.5 rounded-lg border border-[#dbeafe] bg-[#eff6ff] min-w-0 items-center">
+                        <div className="bg-[#dbeafe] p-1.5 rounded h-fit text-[#2563eb] shrink-0">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-semibold text-xs text-zinc-900 truncate" title={madinahHotelName || "Madinah Hotel"}>{madinahHotelName || "Madinah Hotel"}</span>
+                          <span className="text-[10px] text-zinc-500">Madinah Hotel</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Footer Info */}
+                  <div className="flex flex-col gap-2 mt-auto text-xs text-zinc-600 font-medium">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      <span className="truncate">{formatDateStr(p.start_date)} - {formatDateStr(p.end_date)}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-zinc-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                      <span className="truncate">{p.duration ? `${Math.max(1, p.duration - 1)} nights / ${p.duration} days` : "-"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* View Details Button */}
+                <div className="bg-[#337a5b] text-white text-center py-2.5 font-semibold hover:bg-[#276046] transition-colors flex items-center justify-center gap-2 text-xs uppercase tracking-wide">
+                  View Details 
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                 </div>
               </Link>
             );
