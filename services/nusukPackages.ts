@@ -1,7 +1,5 @@
 import connectToDatabase from "@/lib/mongodb";
 import Package from "@/models/Package";
-import fs from "fs";
-import path from "path";
 
 export type NusukPackageCamp = {
   name: string;
@@ -39,6 +37,7 @@ export type NusukPackage = {
   detailed_html?: string;
   extracted_makkah_hotel?: string;
   extracted_madinah_hotel?: string;
+  first_city?: "Makkah" | "Madinah" | "Unknown";
   services?: string;
   isSoldOut?: boolean;
 };
@@ -121,17 +120,27 @@ function normalizePackages(value: unknown): NusukPackage[] {
 
       if (!uuid || !name) return null;
 
-      let extracted_makkah_hotel: string | undefined;
-      let extracted_madinah_hotel: string | undefined;
+      const detailed_html = isRecord(p) ? (p.detailed_html as string | null | undefined) : undefined;
+      let extracted_makkah_hotel: string | undefined = undefined;
+      let extracted_madinah_hotel: string | undefined = undefined;
+      let first_city: "Makkah" | "Madinah" | "Unknown" = "Unknown";
 
-      const detailed_html = p.detailed_html ? normalizeString(p.detailed_html) : undefined;
-      
       if (detailed_html) {
         const makkahMatch = detailed_html.match(/<h4[^>]*class="[^"]*dga-card-title[^"]*"[^>]*>([^<]+)<\/h4>\s*<p[^>]*>(?:Hotel in Makkah|Makkah Accommodation)<\/p>/i);
         const madinahMatch = detailed_html.match(/<h4[^>]*class="[^"]*dga-card-title[^"]*"[^>]*>([^<]+)<\/h4>\s*<p[^>]*>(?:Hotel in Madinah|Madinah Accommodation)<\/p>/i);
         
         if (makkahMatch) extracted_makkah_hotel = makkahMatch[1].trim();
         if (madinahMatch) extracted_madinah_hotel = madinahMatch[1].trim();
+
+        const htmlLower = detailed_html.toLowerCase();
+        const beginsMadinah = htmlLower.includes('journey begins in madinah') || htmlLower.includes('beginning in madinah') || htmlLower.includes('start in madinah') || htmlLower.includes('arrival in madinah') || htmlLower.includes('flight to madinah');
+        const beginsMakkah = htmlLower.includes('journey begins in makkah') || htmlLower.includes('beginning in makkah') || htmlLower.includes('start in makkah') || htmlLower.includes('arrival in makkah') || htmlLower.includes('flight to jeddah');
+
+        if (beginsMadinah && !beginsMakkah) {
+            first_city = "Madinah";
+        } else if (beginsMakkah && !beginsMadinah) {
+            first_city = "Makkah";
+        }
       }
 
       return {
@@ -157,6 +166,7 @@ function normalizePackages(value: unknown): NusukPackage[] {
         detailed_html,
         extracted_makkah_hotel,
         extracted_madinah_hotel,
+        first_city,
         services: p.services ? normalizeString(p.services) : undefined,
         isSoldOut: normalizeBoolean(p.isSoldOut),
       } as NusukPackage;

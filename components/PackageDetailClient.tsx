@@ -2,15 +2,7 @@
 
 import { useMemo, useEffect, useState } from "react";
 import type { NusukPackage } from "../services/nusukPackages";
-
-function formatMoney(value: number) {
-  if (!Number.isFinite(value)) return "-";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "SAR",
-    maximumFractionDigits: 2,
-  }).format(value);
-}
+import { useCurrency } from "./CurrencyProvider";
 
 // Icons
 const StarIcon = () => (
@@ -20,6 +12,7 @@ const StarIcon = () => (
 );
 
 export function PackageDetailClient({ pkg: p }: { pkg: NusukPackage }) {
+  const { formatPrice } = useCurrency();
   const [mounted, setMounted] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
@@ -295,7 +288,7 @@ export function PackageDetailClient({ pkg: p }: { pkg: NusukPackage }) {
               <div className="text-right">
                 <span className="block text-xs font-medium text-gray-300 uppercase tracking-wider mb-1">Total Price</span>
                 <div className="text-3xl md:text-4xl font-extrabold text-white drop-shadow-lg">
-                  {formatMoney(p.total_price)}
+                  {formatPrice(p.total_price)}
                 </div>
               </div>
               {p.available_seats !== undefined && (

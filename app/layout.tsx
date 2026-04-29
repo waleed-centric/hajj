@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { CurrencyProvider } from "@/components/CurrencyProvider";
+import { CurrencySelector } from "@/components/CurrencySelector";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,7 +29,17 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <CurrencyProvider>
+          <header className="w-full bg-white border-b border-zinc-200 px-4 py-3 flex justify-between items-center shadow-sm">
+            <div className="font-bold text-xl tracking-tight text-indigo-600">Nusuk Scraper</div>
+            <CurrencySelector />
+          </header>
+          <main className="flex-1 bg-zinc-50">
+            {children}
+          </main>
+        </CurrencyProvider>
+      </body>
     </html>
   );
 }

@@ -1,18 +1,11 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import moment from "moment";
 import type { NusukPackage } from "../services/nusukPackages";
+import { useCurrency } from "./CurrencyProvider";
 
 import Link from "next/link";
-
-function formatMoney(value: number) {
-  if (!Number.isFinite(value)) return "-";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "SAR",
-    maximumFractionDigits: 2,
-  }).format(value);
-}
 
 function formatDateStr(dateStr?: string) {
   if (!dateStr) return "-";
@@ -30,6 +23,7 @@ export function NusukPackagesView(props: {
   lastUpdated: string | null;
   packages: NusukPackage[];
 }) {
+  const { formatPrice } = useCurrency();
   const [isFiltersOpen, setIsFiltersOpen] = useState(true);
   const [viewType, setViewType] = useState<'table' | 'card'>('table');
   const [routeType, setRouteType] = useState("all");
@@ -41,6 +35,7 @@ export function NusukPackagesView(props: {
   const [flightCity, setFlightCity] = useState("");
   const [availability, setAvailability] = useState("all"); // 'all', 'available', 'sold_out'
   const [sortBy, setSortBy] = useState("none");
+  const [firstCity, setFirstCity] = useState<"all" | "Makkah" | "Madinah">("all");
   
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -79,6 +74,7 @@ export function NusukPackagesView(props: {
     setFlightCity("");
     setAvailability("all");
     setSortBy("none");
+    setFirstCity("all");
   }
 
   const filtered = useMemo(() => {
@@ -124,6 +120,27 @@ export function NusukPackagesView(props: {
         if (!inDescription && !inHtml) return false;
       }
 
+      // First City
+      if (firstCity !== "all") {
+        let computedFirstCity = p.first_city;
+        
+        // If unknown, fallback to first hotel or zone name
+        if (!computedFirstCity || computedFirstCity === "Unknown") {
+          const isMadinah = p.zone_name?.toLowerCase().includes('madinah') || 
+                            p.hotels?.[0]?.name.toLowerCase().includes('madinah');
+          const isMakkah = p.zone_name?.toLowerCase().includes('makkah') || 
+                           p.hotels?.[0]?.name.toLowerCase().includes('makkah');
+                           
+          if (isMadinah && !isMakkah) {
+            computedFirstCity = "Madinah";
+          } else if (isMakkah && !isMadinah) {
+            computedFirstCity = "Makkah";
+          }
+        }
+
+        if (computedFirstCity !== firstCity) return false;
+      }
+
       return true;
     });
 
@@ -138,12 +155,12 @@ export function NusukPackagesView(props: {
     }
 
     return result;
-  }, [props.packages, packageName, categoryName, serviceProvider, camp, shifting, routeType, flightCity, availability, sortBy]);
+  }, [props.packages, packageName, categoryName, serviceProvider, camp, shifting, routeType, flightCity, availability, sortBy, firstCity]);
 
   // Reset page to 1 whenever filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [packageName, categoryName, serviceProvider, camp, shifting, routeType, flightCity, availability, sortBy]);
+  }, [packageName, categoryName, serviceProvider, camp, shifting, routeType, flightCity, availability, sortBy, firstCity]);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginated = useMemo(() => {
@@ -178,16 +195,16 @@ export function NusukPackagesView(props: {
             Hajj Packages
           </h1>
           <div className="text-sm text-zinc-600">
-            Source: <span className="font-medium">{props.source}</span>
             {props.lastUpdated ? (
               <>
-                {" "}
-                • Last updated:{" "}
-                <span className="font-medium">{props.lastUpdated}</span>
+                Last updated:{" "}
+                <span className="font-medium">
+                  {moment(props.lastUpdated).format('MMMM Do YYYY, h:mm:ss a')}
+                </span>
+                {" • "}
               </>
             ) : null}
-            {" "}
-            • Count: <span className="font-medium">{filtered.length}</span>
+            Count: <span className="font-medium">{filtered.length}</span>
           </div>
         </div>
 
@@ -354,6 +371,14 @@ export function NusukPackagesView(props: {
                   </select>
                 </div>
                 <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-semibold text-zinc-900">First City</label>
+                  <select value={firstCity} onChange={e => setFirstCity(e.target.value as any)} className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm outline-none focus:border-emerald-600 bg-white">
+                    <option value="all">All</option>
+                    <option value="Makkah">Makkah First</option>
+                    <option value="Madinah">Madinah First</option>
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
                   <label className="text-sm font-semibold text-zinc-900">Sort By</label>
                   <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="h-10 w-full rounded-md border border-zinc-200 px-3 text-sm outline-none focus:border-emerald-600 bg-white">
                     <option value="none">No sorting</option>
@@ -418,7 +443,7 @@ export function NusukPackagesView(props: {
                         {p.shifting ? "Yes" : "No"}
                       </div>
                       <div className="text-right text-sm font-semibold text-zinc-900">
-                        {formatMoney(p.total_price)}
+                        {formatPrice(p.total_price)}
                       </div>
                       <div className="text-right text-sm">
                         <span
@@ -469,10 +494,9 @@ export function NusukPackagesView(props: {
                     </div>
                     <div className="flex flex-col items-start bg-zinc-50/50 p-2.5 rounded-lg border border-zinc-100">
                       <div className="flex items-baseline gap-1 text-[#0f766e]">
-                        <span className="font-semibold text-sm">SAR</span>
-                        <span className="text-2xl font-bold tracking-tight leading-none">{p.total_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-2xl font-bold tracking-tight leading-none">{formatPrice(p.total_price)}</span>
                       </div>
-                      {p.vat && <div className="text-[10px] text-zinc-500 font-medium tracking-wide mt-0.5">+ VAT SAR {p.vat.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>}
+                      {p.vat && <div className="text-[10px] text-zinc-500 font-medium tracking-wide mt-0.5">+ VAT {formatPrice(p.vat)}</div>}
                     </div>
                   </div>
 
